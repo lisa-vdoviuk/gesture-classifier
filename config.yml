@@ -1,0 +1,15 @@
+mode: run
+
+webcam:
+  deviceIndex: 0
+  width: 640
+  height: 480
+  flip: true
+  dtype: u8
+
+detector:
+  modelPath: hand_landmarker.task
+
+engine:
+  history: 300
+  autoclose: false
