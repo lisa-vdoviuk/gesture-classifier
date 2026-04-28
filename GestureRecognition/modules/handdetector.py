@@ -57,7 +57,7 @@ class HandDetector(Module):
         # Load handlandmark.task
         if not os.path.exists(model_path):
             url = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
-            print(f"Downloading model to {model_path}...")
+            print(f"Downloading landmarker model to {model_path}...")
             urllib.request.urlretrieve(url, model_path)
             print("Done.")
 

@@ -1,6 +1,7 @@
 from SignalHub import GALY, get_nested_key, Module
 from collections import deque
 import numpy as np
+
 class Preprocessor(Module):
     def __init__(self, outputSignal="preprocessor"):
         super().__init__(

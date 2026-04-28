@@ -1,6 +1,8 @@
 from GestureRecognition.modules.handdetector import HandDetector
 from GestureRecognition.modules.preprocessor import Preprocessor
 from GestureRecognition.modules.recorder import Recorder
+from GestureRecognition.modules.trainingcontroller import TrainingController
+#from GestureRecognition.modules.hiddenmarkov import HiddenMarkov
 from SignalHub import Engine, ConfigParser, Webcam
 import argparse
 
@@ -15,7 +17,10 @@ def run(parser: argparse.ArgumentParser):
         Webcam(),
         HandDetector(),
         Preprocessor(),
-        Recorder()
+        #Recorder()
+        TrainingController(),
+        #HiddenMarkov(),
+        
     ]
 
     engine = Engine(modules=modules, signals=[])
@@ -24,4 +29,3 @@ def run(parser: argparse.ArgumentParser):
 if __name__ == "__main__":
         parser = argparse.ArgumentParser("GestureRecognition")
         run(parser)
-
