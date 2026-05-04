@@ -2,3 +2,4 @@ mediapipe==0.10.32
 opencv-python
 numpy
 signalhub @ git+https://github.com/jaboll-ai/SignalHub.git@pyproject
+hmmlearn
