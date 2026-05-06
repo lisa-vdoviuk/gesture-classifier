@@ -1,5 +1,6 @@
 import os
 import time
+import pickle
 from pathlib import Path
 import numpy as np
 from PyQt5.QtWidgets import QAction, QInputDialog, QMessageBox
@@ -188,6 +189,10 @@ class TrainingController(Module):
         save_action.triggered.connect(self._save_current_sample)
         menu.addAction(save_action)
 
+        build_action = QAction("Build dataset", window)
+        build_action.triggered.connect(self._build_dataset_action)
+        menu.addAction(build_action)
+
         train_action = QAction("Train HMM model", window)
         train_action.triggered.connect(self._train_hmm_model)
         menu.addAction(train_action)
@@ -366,14 +371,52 @@ class TrainingController(Module):
         return True
 
     def _finish_training_if_needed(self):
-        if self.mode == "training" and self.saved_samples >=self.target_samples:
+        if self.mode == "training" and self.saved_samples >= self.target_samples:
             self.mode = "classification"
             self.is_recording = False
             self.status_message = "TRAINING COMPLETE"
             self._freeze_until = time.time() + 2.0
+            self._build_dataset()
             return True
         return False
     
+    def _build_dataset(self):
+        dataset = {}
+        for root, _, files in os.walk(self.raw_dir):
+            label = os.path.basename(root)
+            if label == self.raw_dir.name:
+                continue
+            for file in files:
+                if not file.endswith(".npy"):
+                    continue
+                full_path = os.path.join(root, file)
+                data = np.load(full_path)
+                if data.shape != (20, 2):
+                    continue
+                if np.isnan(data).any():
+                    continue
+                if label not in dataset:
+                    dataset[label] = []
+                dataset[label].append(data)
+
+        with open(self.dataset_path, "wb") as f:
+            pickle.dump(dataset, f)
+
+        print(f"Dataset saved to: {self.dataset_path}")
+        return dataset
+
+    def _build_dataset_action(self):
+        try:
+            dataset = self._build_dataset()
+            summary = "\n".join(f"{k}: {len(v)} samples" for k, v in dataset.items())
+            QMessageBox.information(
+                None,
+                "Dataset built",
+                f"Saved to {self.dataset_path}\n\n{summary or 'No samples found.'}",
+            )
+        except Exception as e:
+            QMessageBox.critical(None, "Dataset build failed", str(e))
+
     def _next_sample_path(self, label):
         label_dir = self.raw_dir / label
         label_dir.mkdir(parents=True, exist_ok=True)
