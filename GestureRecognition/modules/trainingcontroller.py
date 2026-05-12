@@ -362,7 +362,7 @@ class TrainingController(Module):
         if not isinstance(trajectory, np.ndarray):
             return False
 
-        if trajectory.shape != (20, 2):
+        if trajectory.shape[0] < 20 or trajectory.shape[1] != 2:
             return False
 
         if np.isnan(trajectory).any():
@@ -391,7 +391,7 @@ class TrainingController(Module):
                     continue
                 full_path = os.path.join(root, file)
                 data = np.load(full_path)
-                if data.shape != (20, 2):
+                if data.shape[0] < 20 or data.shape[1] != 2:
                     continue
                 if np.isnan(data).any():
                     continue

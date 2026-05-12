@@ -12,7 +12,7 @@ class Preprocessor(Module):
         self.outputSignal = outputSignal
 
     def start(self, data):
-        self.trajectory = deque(maxlen=20)
+        self.trajectory = deque(maxlen=50)
         self.lost_frames = 0
         self.min_points = 20
         self.max_lost_frames = 4
@@ -23,9 +23,9 @@ class Preprocessor(Module):
         result = data["detector"]
         if result and getattr(result, "hand_landmarks", None):
             hand = result.hand_landmarks[0]
-            x_rel = hand[8].x - hand[0].x 
-            y_rel = hand[8].y - hand[0].y
-            self.trajectory.append([x_rel,y_rel]) # tracks index fingertip relative to wrist
+            x_rel = hand[8].x 
+            y_rel = -hand[8].y
+            self.trajectory.append([x_rel,y_rel]) # tracks index fingertip
             self.lost_frames = 0
             if len(self.trajectory) < self.min_points:
                 return {self.outputSignal: None}
@@ -33,7 +33,13 @@ class Preprocessor(Module):
                 arr = np.array(list(self.trajectory))
                 center = arr.mean(axis=0)
                 arr_centered = arr - center
-                return {self.outputSignal: arr_centered} # center normalization
+                max_arr = np.max(np.abs(arr_centered))
+                if max_arr > 0:
+                    scaled_arr = arr_centered/max_arr
+                    return {self.outputSignal: scaled_arr} # center normalization + scaling
+                else:
+                    return {self.outputSignal: None}
+                
         else:
             self.lost_frames += 1
             if self.lost_frames > self.max_lost_frames:
