@@ -56,6 +56,7 @@ class TrailMarker(Module):
 
         timestamp_ms = int(time.time() * 1000)
         result = self._recognizer.recognize_for_video(mp_image, timestamp_ms)
+        gesture_detected = False
         if result.gestures:
             category = result.gestures[0][0]
             gesture = category.category_name
@@ -64,16 +65,22 @@ class TrailMarker(Module):
             self.current_gesture = f"{gesture} {score:.2f}"
             if gesture == "Pointing_Up":
                 # Grabs the very first hand it sees (Hand 0)
-                hand = result.hand_landmarks[0]
-                x = hand[self.index_finger].x
-                y = hand[self.index_finger].y
+                if getattr(result, "hand_landmarks", None):
+                    hand = result.hand_landmarks[0]
+                    x = hand[self.index_finger].x
+                    y = hand[self.index_finger].y
 
-                self.trail.append((x,y))
-                self.lost_frames = 0
+                    self.trail.append((x,y))
+                    self.lost_frames = 0
+                    gesture_detected = True
             elif gesture == "Close_Fist":
-                self.lost_frames+=1
-                if self.lost_frames >= self.max_lost_frames:
-                    self.trail.clear()
+                self.trail.clear()
+                self.lost_frames = 0
+                gesture_detected = True
+        if not gesture_detected:
+            self.lost_frames+=1
+            if self.lost_frames >= self.max_lost_frames:
+                self.trail.clear()
         
         galy = GALY()
         galy.layer("trail", alwaysVisible=True)
