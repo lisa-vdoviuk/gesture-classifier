@@ -12,7 +12,7 @@ class Preprocessor(Module):
         self.outputSignal = outputSignal
 
     def start(self, data):
-        self.trajectory = deque(maxlen=50)
+        self.trajectory = deque(maxlen=70)
         self.lost_frames = 0
         self.min_points = 20
         self.max_lost_frames = 4
