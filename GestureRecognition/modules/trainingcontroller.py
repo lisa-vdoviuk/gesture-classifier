@@ -338,18 +338,16 @@ class TrainingController(Module):
     # Training bridge
     # ------------------------------------------------------------
 
-        # def _run_offline_hmm_training(self):
-
-        #     from GestureRecognition.hmmclassifier import train_hmm
-
-        #     train_hmm(
-        #         raw_dir="data/raw",
-        #         dataset_path="data/dataset.pkl",
-        #         model_path="data/hmm_model.pkl",
-        #         n_components=4,
-        #         covariance_type="diag",
-        #         n_iter=100,
-        #     )
+    def _run_offline_hmm_training(self):
+        from GestureRecognition.hmmclassifier import HMMClassifier
+        dataset = self._build_dataset()
+        if not dataset:
+            raise ValueError("No data found for training. Please record some samples first.")
+        classifier = HMMClassifier(n_components=5, covariance_type="diag", n_iter=100)
+        classifier.fit(dataset)
+        with open(self.model_path, "wb") as f:
+            pickle.dump(classifier, f)
+        print(f"HMM model saved to: {self.model_path}")
 
     # ------------------------------------------------------------
     # Helpers

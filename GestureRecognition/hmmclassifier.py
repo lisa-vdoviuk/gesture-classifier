@@ -30,6 +30,21 @@ class HMMClassifier:
             model.fit(X_train, lengths)
             self.models[label] = model
         
+        print("Evaluating training performance...")
+        for label in self.classes:
+            sequences = X_dict[label]
+
+            predictions = self.predict(sequences)
+
+            correct_predictions = sum(p == label for p in predictions)
+            total_sequences = len(sequences)
+
+            if total_sequences > 0:
+                accuracy = correct_predictions / total_sequences
+                print(f"Class {label}: {correct_predictions}/{total_sequences} correct, Accuracy: {accuracy:.2f}")
+            else:
+                print(f"Class {label}: No sequences to evaluate.")
+        
         return self
     
     def decision_function(self, X_list):
