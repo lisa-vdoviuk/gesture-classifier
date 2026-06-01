@@ -342,7 +342,15 @@ class TrainingController(Module):
         from GestureRecognition.hmmclassifier import HMMClassifier
         dataset = self._build_dataset()
         if not dataset:
-            raise ValueError("No data found for training. Please record some samples first.")
+            try:
+                return self._build_dataset_action()
+            except Exception as e:
+                QMessageBox.critical(
+                    None,
+                    "Dataset build failed",
+                    str(e),
+                )
+                return
         classifier = HMMClassifier(n_components=5, covariance_type="diag", n_iter=100)
         classifier.fit(dataset)
         with open(self.model_path, "wb") as f:
