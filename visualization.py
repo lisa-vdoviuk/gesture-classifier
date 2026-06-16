@@ -24,7 +24,7 @@ def load_dataset(dataset_path=DATASET_PATH):
     return dataset
 
 
-def visualize_dataset(max_samples_per_class=5):
+def visualize_dataset(max_samples_per_class=30):
     """
     Shows several recorded gesture trajectories for each class.
 
