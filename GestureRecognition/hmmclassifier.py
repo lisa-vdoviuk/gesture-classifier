@@ -147,53 +147,53 @@ class HMMClassifier:
         return True
 
 
-# This function splits the dataset into training data and test data.
-def train_test_split_dataset(dataset, test_size=0.2, random_state=42):
-    rng = np.random.default_rng(random_state)
+    # This function splits the dataset into training data and test data.
+    def train_test_split_dataset(self, dataset, test_size=0.2, random_state=42):
+        rng = np.random.default_rng(random_state)
 
-    train_dataset = {}
-    test_dataset = {}
+        self.train_dataset = {}
+        self.test_dataset = {}
 
-    for label, sequences in dataset.items():
-        sequences = list(sequences)
+        for label, sequences in dataset.items():
+            sequences = list(sequences)
 
-        if len(sequences) < 2:
-            continue
+            if len(sequences) < 2:
+                continue
 
-        indices = rng.permutation(len(sequences))
-        test_count = max(1, int(len(sequences) * test_size))
+            indices = rng.permutation(len(sequences))
+            test_count = max(1, int(len(sequences) * test_size))
 
-        if test_count >= len(sequences):
-            test_count = len(sequences) - 1
+            if test_count >= len(sequences):
+                test_count = len(sequences) - 1
 
-        test_indices = indices[:test_count]
-        train_indices = indices[test_count:]
+            test_indices = indices[:test_count]
+            train_indices = indices[test_count:]
 
-        train_dataset[label] = [sequences[i] for i in train_indices]
-        test_dataset[label] = [sequences[i] for i in test_indices]
+            self.train_dataset[label] = [sequences[i] for i in train_indices]
+            self.test_dataset[label] = [sequences[i] for i in test_indices]
 
-    return train_dataset, test_dataset
+        return self.train_dataset, self.test_dataset
 
 
-# This function tests the classifier and prints the accuracy.
-def evaluate_classifier(classifier, test_dataset):
-    correct = 0
-    total = 0
+    # This function tests the classifier and prints the accuracy.
+    def evaluate_classifier(self, test_dataset):
+        self.correct = 0
+        self.total = 0
 
-    for label, sequences in test_dataset.items():
-        predictions = classifier.predict(sequences)
+        for label, sequences in test_dataset.items():
+            predictions = self.predict(sequences)
 
-        for prediction in predictions:
-            if prediction == label:
-                correct += 1
+            for prediction in predictions:
+                if prediction == label:
+                    self.correct += 1
 
-            total += 1
+                self.total += 1
 
-    if total == 0:
-        print("No test data available.")
-        return 0
+        if self.total == 0:
+            print("No test data available.")
+            return 0
 
-    accuracy = correct / total
-    print(f"Accuracy: {accuracy:.2f}")
+        self.accuracy = self.correct / self.total
+        print(f"Accuracy: {self.accuracy:.2f}")
 
-    return accuracy
+        return self.accuracy

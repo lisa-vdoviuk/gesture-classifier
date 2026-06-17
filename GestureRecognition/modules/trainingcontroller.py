@@ -356,6 +356,10 @@ class TrainingController(Module):
         with open(self.model_path, "wb") as f:
             pickle.dump(classifier, f)
         print(f"HMM model saved to: {self.model_path}")
+        train_dataset, test_dataset = classifier.train_test_split_dataset(dataset=dataset)
+        classifier.evaluate_classifier(test_dataset)
+
+
 
     # ------------------------------------------------------------
     # Helpers
