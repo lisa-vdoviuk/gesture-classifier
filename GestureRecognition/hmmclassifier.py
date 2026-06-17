@@ -1,93 +1,199 @@
+import pickle
+
 import numpy as np
-from hmmlearn import hmm
-import joblib
-import os
+from hmmlearn.hmm import GaussianHMM
+
 
 class HMMClassifier:
-    def __init__(self, n_components=7, covariance_type='diag', n_iter=100):
+    # This function creates the classifier and saves the HMM settings.
+    def __init__(self, n_components=5, covariance_type="diag", n_iter=100):
         self.n_components = n_components
         self.covariance_type = covariance_type
         self.n_iter = n_iter
+
         self.models = {}
-        self.classes = []
+        self.classes_ = []
 
-    
-    def fit(self, X_dict):
-        """ X_dict: dict like {'A': [seq1, seq2,...], 'B': [seq1, seq2,..]}
-            where every seq is np.array of shape (T, features)
-        """
-        self.classes = list(X_dict.keys())
-        for label in self.classes:
-            sequences = X_dict[label]
-            X_train = np.vstack(sequences)
-            lengths = [len(s) for s in sequences]
+    # This function trains one HMM model for every gesture class.
+    def fit(self, dataset):
+        self.models = {}
+        self.classes_ = []
 
-            model = hmm.GaussianHMM(n_components=self.n_components,
-                                    covariance_type=self.covariance_type,
-                                    n_iter=self.n_iter,
-                                    random_state=42)
-            print(f"Training HMM for class {label} with {len(sequences)} sequences...")
-            model.fit(X_train, lengths)
+        for label in sorted(dataset.keys()):
+            sequences = dataset[label]
+            clean_sequences = []
+
+            for sequence in sequences:
+                sequence = np.asarray(sequence, dtype=float)
+
+                if self._is_valid_sequence(sequence):
+                    clean_sequences.append(sequence)
+
+            if len(clean_sequences) < 2:
+                print(f"Skipping {label}: not enough valid samples")
+                continue
+
+            X, lengths = self._prepare_training_data(clean_sequences)
+
+            model = GaussianHMM(
+                n_components=self.n_components,
+                covariance_type=self.covariance_type,
+                n_iter=self.n_iter,
+                random_state=42,
+            )
+
+            model.fit(X, lengths)
+
             self.models[label] = model
-        
-        print("Evaluating training performance...")
-        for label in self.classes:
-            sequences = X_dict[label]
+            self.classes_.append(label)
 
-            predictions = self.predict(sequences)
+            print(f"Trained HMM for {label} with {len(clean_sequences)} samples")
 
-            correct_predictions = sum(p == label for p in predictions)
-            total_sequences = len(sequences)
+        if len(self.models) == 0:
+            raise ValueError("No models were trained. Please check the dataset.")
 
-            if total_sequences > 0:
-                accuracy = correct_predictions / total_sequences
-                print(f"Class {label}: {correct_predictions}/{total_sequences} correct, Accuracy: {accuracy:.2f}")
-            else:
-                print(f"Class {label}: No sequences to evaluate.")
-        
         return self
-    
-    def decision_function(self, X_list):
-        """Here we are counting logarithm of likelihood (Log-Likelihood) for each sequence.
-           This is made to select which model has to be used for prediction. The higher the Log-Likelihood, the better the model fits the data.
-           X_list: list of sequences, where every seq is np.array of shape (T, features)
-        """
-        n_samples = len(X_list)
-        n_classes = len(self.classes)
 
-        # Matrix for results
-        scores = np.zeros((n_samples, n_classes))
+    # This function calculates the score of each sequence for every trained class.
+    def decision_function(self, sequences):
+        if len(self.models) == 0:
+            raise ValueError("The classifier is not trained yet.")
 
-        for i, seq in enumerate(X_list):
-            for j, label in enumerate(self.classes):
+        sequences = self._make_sequence_list(sequences)
+        all_scores = []
+
+        for sequence in sequences:
+            sequence = np.asarray(sequence, dtype=float)
+
+            if not self._is_valid_sequence(sequence):
+                all_scores.append([float("-inf")] * len(self.classes_))
+                continue
+
+            scores = []
+
+            for label in self.classes_:
                 model = self.models[label]
+
                 try:
-                    # score() return Log-Likelihood of the sequence under the model log P(O|λ)
-                    scores[i,j]=model.score(seq)
-                except:
-                    # if sequence is too short or "broken"
-                    scores[i,j]=-np.inf 
-        return scores
-    
-    def predict(self, X_list):
-        """Chooses the class with the highest score"""
+                    score = model.score(sequence)
+                except Exception:
+                    score = float("-inf")
 
-        # Get scores matrix
-        scores = self.decision_function(X_list)
+                scores.append(score)
 
-        # Get index of the best class for each sequence
+            all_scores.append(scores)
+
+        return np.array(all_scores)
+
+    # This function predicts the class with the highest HMM score.
+    def predict(self, sequences):
+        scores = self.decision_function(sequences)
         best_indices = np.argmax(scores, axis=1)
 
-        # Return the corresponding class labels
-        return [self.classes[idx] for idx in best_indices]
-    
-    def save(self, filename):
-        os.makedirs("models", exist_ok=True)
-        path = os.path.join("models", os.path.basename(filename))
-        joblib.dump(self, path)
-        print(f"HMMClassifier saved to {path}")
-    
+        predictions = []
+
+        for index in best_indices:
+            predictions.append(self.classes_[index])
+
+        return predictions
+
+    # This function saves the trained classifier into a file.
+    def save(self, path):
+        with open(path, "wb") as file:
+            pickle.dump(self, file)
+
+    # This function loads a trained classifier from a file.
     @staticmethod
-    def load(filename):
-        return joblib.load(filename)
-            
+    def load(path):
+        with open(path, "rb") as file:
+            return pickle.load(file)
+
+    # This function combines all sequences and also stores their lengths.
+    def _prepare_training_data(self, sequences):
+        lengths = []
+
+        for sequence in sequences:
+            lengths.append(len(sequence))
+
+        X = np.concatenate(sequences, axis=0)
+
+        return X, lengths
+
+    # This function makes sure that one sequence and many sequences are handled correctly.
+    def _make_sequence_list(self, sequences):
+        if isinstance(sequences, np.ndarray):
+            if sequences.ndim == 2:
+                return [sequences]
+
+        return list(sequences)
+
+    # This function checks if a gesture trajectory has the correct format.
+    def _is_valid_sequence(self, sequence):
+        if sequence is None:
+            return False
+
+        if sequence.ndim != 2:
+            return False
+
+        if sequence.shape[1] != 2:
+            return False
+
+        if len(sequence) < 2:
+            return False
+
+        if np.isnan(sequence).any():
+            return False
+
+        return True
+
+
+# This function splits the dataset into training data and test data.
+def train_test_split_dataset(dataset, test_size=0.2, random_state=42):
+    rng = np.random.default_rng(random_state)
+
+    train_dataset = {}
+    test_dataset = {}
+
+    for label, sequences in dataset.items():
+        sequences = list(sequences)
+
+        if len(sequences) < 2:
+            continue
+
+        indices = rng.permutation(len(sequences))
+        test_count = max(1, int(len(sequences) * test_size))
+
+        if test_count >= len(sequences):
+            test_count = len(sequences) - 1
+
+        test_indices = indices[:test_count]
+        train_indices = indices[test_count:]
+
+        train_dataset[label] = [sequences[i] for i in train_indices]
+        test_dataset[label] = [sequences[i] for i in test_indices]
+
+    return train_dataset, test_dataset
+
+
+# This function tests the classifier and prints the accuracy.
+def evaluate_classifier(classifier, test_dataset):
+    correct = 0
+    total = 0
+
+    for label, sequences in test_dataset.items():
+        predictions = classifier.predict(sequences)
+
+        for prediction in predictions:
+            if prediction == label:
+                correct += 1
+
+            total += 1
+
+    if total == 0:
+        print("No test data available.")
+        return 0
+
+    accuracy = correct / total
+    print(f"Accuracy: {accuracy:.2f}")
+
+    return accuracy
