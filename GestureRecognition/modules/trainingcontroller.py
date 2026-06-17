@@ -23,7 +23,7 @@ class TrainingController(Module):
         outputSignal="app_state",
         raw_dir="data/raw",
         dataset_path="data/dataset.pkl",
-        model_path="data/hmm_model.pkl",
+        model_path="data/hmm_classifier.pkl",
     ):
         super().__init__(
             inputSignals=["config","webcam", "preprocessor"],
@@ -351,13 +351,14 @@ class TrainingController(Module):
                     str(e),
                 )
                 return
-        classifier = HMMClassifier(n_components=5, covariance_type="diag", n_iter=100)
-        classifier.fit(dataset)
-        with open(self.model_path, "wb") as f:
-            pickle.dump(classifier, f)
-        print(f"HMM model saved to: {self.model_path}")
-        train_dataset, test_dataset = classifier.train_test_split_dataset(dataset=dataset)
-        classifier.evaluate_classifier(test_dataset)
+        
+
+        classifier = HMMClassifier(n_components=5)
+        train_data, test_data = classifier.train_test_split_dataset(dataset=dataset, test_size=0.2)
+        classifier.fit(train_data)
+        classifier.save(self.model_path)
+        print(f"--- Results of testing ---")
+        classifier.evaluate_classifier(test_data)
 
 
 
