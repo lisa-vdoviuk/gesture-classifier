@@ -35,19 +35,45 @@ class HMMClassifier:
 
             X, lengths = self._prepare_training_data(clean_sequences)
 
-            model = GaussianHMM(
-                n_components=self.n_components,
-                covariance_type=self.covariance_type,
-                n_iter=self.n_iter,
-                random_state=42,
-            )
+            """
+            Letters sequences are different and one can be more complex than another.
+            So we will train one HMM model for each class and intergrate grid search for 
+            dynamic selection of the best number of states for indivial class.
+            """
 
-            model.fit(X, lengths)
+            best_score = float("-inf")
+            best_model = None
 
-            self.models[label] = model
-            self.classes_.append(label)
+            for n in range(2, self.n_components + 1):
+                model = GaussianHMM(
+                    n_components=n,
+                    covariance_type=self.covariance_type,
+                    n_iter=self.n_iter,
+                    
+                    random_state=42,
+                    min_covar=1e-3, 
+                    tol=1e-2,
+                )
+                """
+                When there's a small number of samples, the covariance matrix can become singular and log-likelihood can become negative infinity. 
+                Setting a minimum covariance value can help to prevent this issue and improve the stability of the model. 
+                For that we set parameters:
+                    - min_covar: This parameter sets a minimum value for the covariance matrix to prevent it from becoming singular.
+                    - tol: This parameter sets the convergence threshold for the EM algorithm.
+                """
+                try:
+                    model.fit(X, lengths)
+                    score = model.score(X)
+                    if score > best_score:
+                        best_score = score
+                        best_model = model
+                except Exception as e:
+                    print(f"Error occurred while fitting model for {label}: {e}")
+                    continue
 
-            print(f"Trained HMM for {label} with {len(clean_sequences)} samples")
+            if best_model is not None:
+                self.models[label] = best_model
+                self.classes_.append(label)
 
         if len(self.models) == 0:
             raise ValueError("No models were trained. Please check the dataset.")
@@ -147,53 +173,45 @@ class HMMClassifier:
         return True
 
 
-# This function splits the dataset into training data and test data.
-def train_test_split_dataset(dataset, test_size=0.2, random_state=42):
-    rng = np.random.default_rng(random_state)
+    # This function splits the dataset into training data and test data.
+    def train_test_split_dataset(self, dataset, test_size=0.2, random_state=42):
+        rng = np.random.default_rng(random_state)
 
-    train_dataset = {}
-    test_dataset = {}
+        self.train_dataset = {}
+        self.test_dataset = {}
 
-    for label, sequences in dataset.items():
-        sequences = list(sequences)
+        for label, sequences in dataset.items():
+            sequences = list(sequences)
 
-        if len(sequences) < 2:
-            continue
+            if len(sequences) < 2:
+                continue
 
-        indices = rng.permutation(len(sequences))
-        test_count = max(1, int(len(sequences) * test_size))
+            indices = rng.permutation(len(sequences))
+            test_count = max(1, int(len(sequences) * test_size))
 
-        if test_count >= len(sequences):
-            test_count = len(sequences) - 1
+            if test_count >= len(sequences):
+                test_count = len(sequences) - 1
 
-        test_indices = indices[:test_count]
-        train_indices = indices[test_count:]
+            test_indices = indices[:test_count]
+            train_indices = indices[test_count:]
 
-        train_dataset[label] = [sequences[i] for i in train_indices]
-        test_dataset[label] = [sequences[i] for i in test_indices]
+            self.train_dataset[label] = [sequences[i] for i in train_indices]
+            self.test_dataset[label] = [sequences[i] for i in test_indices]
 
-    return train_dataset, test_dataset
+        return self.train_dataset, self.test_dataset
 
 
-# This function tests the classifier and prints the accuracy.
-def evaluate_classifier(classifier, test_dataset):
-    correct = 0
-    total = 0
+    # This function tests the classifier and prints the accuracy.
+    def evaluate_classifier(self, test_dataset):
+        # For better evaluation of results we will check the metrics for each class separately and also overall accuracy.
+        y_true = []
+        y_pred = []
+        for label, sequences in test_dataset.items():
+            predictions = self.predict(sequences)
+            y_true.extend([label]*len(predictions))
+            y_pred.extend(predictions)
 
-    for label, sequences in test_dataset.items():
-        predictions = classifier.predict(sequences)
-
-        for prediction in predictions:
-            if prediction == label:
-                correct += 1
-
-            total += 1
-
-    if total == 0:
-        print("No test data available.")
-        return 0
-
-    accuracy = correct / total
-    print(f"Accuracy: {accuracy:.2f}")
-
-    return accuracy
+        from sklearn.metrics import classification_report, accuracy_score
+        print(f"Classification report:\n")
+        print(classification_report(y_true, y_pred, target_names=self.classes_))
+        print(f"Overall accuracy: {accuracy_score(y_true, y_pred):.2f}")

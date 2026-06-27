@@ -3,7 +3,7 @@ from GestureRecognition.modules.preprocessor import Preprocessor
 from GestureRecognition.modules.recorder import Recorder
 from GestureRecognition.modules.trainingcontroller import TrainingController
 from GestureRecognition.modules.trailmarker import TrailMarker
-#from GestureRecognition.modules.hiddenmarkov import HiddenMarkov
+from GestureRecognition.modules.hiddenmarkov import HiddenMarkov
 from SignalHub import Engine, ConfigParser, Webcam
 import argparse
 
@@ -18,10 +18,10 @@ def run(parser: argparse.ArgumentParser):
         Webcam(),
         HandDetector(),
         Preprocessor(),
-        TrailMarker(),
-        #Recorder()
         TrainingController(),
-        #HiddenMarkov(),
+        TrailMarker(),
+        HiddenMarkov(),
+        #Recorder(),
         
     ]
 
