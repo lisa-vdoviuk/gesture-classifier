@@ -31,12 +31,6 @@ class Preprocessor(Module):
                 return {self.outputSignal: None}
             else:
                 arr = np.array(list(self.trajectory))
-                arr_y = arr[:,1]
-                for i in range(0,len(arr)-1):
-                        if abs(arr_y[i]-arr_y[i+1])>0.1:
-                            arr[i+1] = (arr[i]+arr[i+1])/2
-                        else:
-                            continue
                 center = arr.mean(axis=0)
                 arr_centered = arr - center
                 max_arr = np.max(np.abs(arr_centered))
