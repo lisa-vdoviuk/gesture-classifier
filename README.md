@@ -17,8 +17,8 @@
     <td align="center"><b>J</b><br><img width="120" src="https://github.com/user-attachments/assets/a0d429cd-7680-44d8-8a04-2efc2b114d7c" /></td>
     <td align="center"><b>K</b><br><img width="120" src="https://github.com/user-attachments/assets/707bd518-f304-4096-838c-d79eb8f850f5" /></td>
     <td align="center"><b>L</b><br><img width="120" src="https://github.com/user-attachments/assets/266f2e4c-7372-45d7-b826-f513c89d81dc" /></td>
-    <td align="center"><b>N</b><br><img width="120" src="https://github.com/user-attachments/assets/154298bb-8d8e-48d8-ba84-ef837835c13a" /></td>
-    <td align="center"><b>M</b><br><img width="120" src="https://github.com/user-attachments/assets/c1e842c2-65cf-4b7d-b3af-35598997334f" /></td>
+    <td align="center"><b>N</b><br><img width="120" src="https://github.com/user-attachments/assets/c1e842c2-65cf-4b7d-b3af-35598997334f" /></td>
+    <td align="center"><b>M</b><br><img width="120" src="https://github.com/user-attachments/assets/154298bb-8d8e-48d8-ba84-ef837835c13a" /></td>
   </tr>
 
   <tr>
