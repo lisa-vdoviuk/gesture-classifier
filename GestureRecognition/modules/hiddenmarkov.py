@@ -12,6 +12,7 @@ class HiddenMarkov(Module):
             name="hiddenmarkov",
         )
         self.outputSignal = outputSignal
+        self.classifier = None
     
     def start(self, data):
         model_path = Path("data/hmm_classifier.pkl")
@@ -33,13 +34,26 @@ class HiddenMarkov(Module):
             galy = GALY()
             galy.layer("hmm-prediction", alwaysVisible=True)
 
+            label = "-"
+            confidence = 0.0
+
             if self.classifier is None:
                 label = "NO HMM"
+
+            elif trajectory is None:
+                label = "-"
+
             else:
-                if trajectory is None:
-                    label = "-"
-                else:
-                    label = self.classifier.predict([trajectory])[0] #get the prediciton form hmm model
+                try:
+                    predictions, confidences = self.classifier.predict_with_confidence([trajectory])
+
+                    label = predictions[0]
+                    confidence = confidences[0]
+
+                except Exception as e:
+                    print(f"HMM prediction error: {e}")
+                    label = "ERROR"
+                    confidence = 0.0
         
             galy.putText( #draw the letter
                 text=label,
@@ -49,7 +63,23 @@ class HiddenMarkov(Module):
                 thickness=3,
                 )
 
-            return {self.outputSignal: {"label": label}, "galy": galy}
+            confidence_text = f"Confidence: {confidence * 100:.1f}%"
+
+            galy.putText(
+                text=confidence_text,
+                org=(10, 85),
+                fontScale=0.45,
+                color=(180, 80, 255),
+                thickness=1,
+                )
+
+            return {
+                self.outputSignal: {
+                    "label": label,
+                    "confidence": confidence,
+                },
+                "galy": galy,
+            }
     
     def stop(self, data):
         return {}
