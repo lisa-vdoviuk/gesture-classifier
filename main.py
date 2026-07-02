@@ -1,3 +1,4 @@
+from GestureRecognition.modules.gesturestate import GestureState
 from GestureRecognition.modules.handdetector import HandDetector
 from GestureRecognition.modules.preprocessor import Preprocessor
 from GestureRecognition.modules.recorder import Recorder
@@ -17,6 +18,7 @@ def run(parser: argparse.ArgumentParser):
         ConfigParser(parser),
         Webcam(),
         HandDetector(),
+        GestureState(),
         Preprocessor(),
         TrainingController(),
         TrailMarker(),

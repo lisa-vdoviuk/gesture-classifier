@@ -6,14 +6,6 @@ import numpy as np
 from PyQt5.QtWidgets import QAction, QInputDialog, QMessageBox
 from SignalHub import Module, GALY
 import mediapipe as mp
-import urllib.request
-import cv2
-
-
-BaseOptions = mp.tasks.BaseOptions
-GestureReqognizer = mp.tasks.vision.GestureRecognizer
-GestureReqognizerOptions = mp.tasks.vision.GestureRecognizerOptions
-VisionRunningMode = mp.tasks.vision.RunningMode
 
 
 
@@ -26,7 +18,7 @@ class TrainingController(Module):
         model_path="data/hmm_classifier.pkl",
     ):
         super().__init__(
-            inputSignals=["config","webcam", "preprocessor"],
+            inputSignals=["config", "preprocessor", "gesture_state"],
             outputSchema={
                 "type": "object",
                 "properties": {
@@ -53,9 +45,7 @@ class TrainingController(Module):
         self.model_version = 0
         self.ui_initialized = False
 
-        self._recognizer = None
         self.is_recording = False
-        self._freeze_until = None
 
         self.current_gesture = "None"
         self.status_message = "WAIT"
@@ -65,20 +55,6 @@ class TrainingController(Module):
         self.dataset_path.parent.mkdir(parents=True, exist_ok=True)
         self.model_path.parent.mkdir(parents=True, exist_ok=True)
 
-        gesture_model_path = Path("gesture_recognizer.task")
-
-        if not gesture_model_path.exists():
-            url = "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task"
-            print(f"Downloading model to {gesture_model_path}...")
-            urllib.request.urlretrieve(url, gesture_model_path)
-            print("Done.")
-
-        options = GestureReqognizerOptions(
-            base_options=BaseOptions(model_asset_path="gesture_recognizer.task"),
-            running_mode=VisionRunningMode.VIDEO,
-        )
-        self._recognizer = GestureReqognizer.create_from_options(options)
-
         return {
             self.outputSignal: self._state(),
         }
@@ -86,80 +62,40 @@ class TrainingController(Module):
     def step(self, data):
         self._init_ui_once()
 
-        frame = data.get("webcam")
+        gesture_state = data.get("gesture_state")
+        trajectory = data.get("preprocessor")
 
-        if frame is None:
-            self.current_gesture = "NO WEBCAM"
-            self.status_message = "NO FRAME"
-            return {
-                self.outputSignal: self._state(),
-                "galy": self._make_overlay(),
-            }
+        gesture = gesture_state.get("gesture", "None")
+        score = gesture_state.get("score", 0.0)
+        is_recording = gesture_state.get("is_recording", False)
+        recording_stopped = gesture_state.get("recording_stopped", False)
 
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        self.is_recording = is_recording
+        self.current_gesture = f"{gesture} {score:.2f}"
 
-        if frame_rgb.dtype != np.uint8:
-            if frame_rgb.max() <= 1.0:
-                frame_rgb = (np.clip(frame_rgb, 0.0, 1.0) * 255).astype(np.uint8)
-            else:
-                frame_rgb = np.clip(frame_rgb, 0, 255).astype(np.uint8)
+        if is_recording:
+            self.status_message = "REC"
+        elif not is_recording and self.status_message == "REC":
+            self.status_message = "WAIT"
 
-        frame_rgb = np.ascontiguousarray(frame_rgb)
-
-        mp_image = mp.Image(
-            image_format=mp.ImageFormat.SRGB,
-            data=frame_rgb,
-        )
-
-        timestamp_ms = int(time.time() * 1000)
-        result = self._recognizer.recognize_for_video(mp_image, timestamp_ms)
-
-        if result.gestures:
-            category = result.gestures[0][0]
-            gesture = category.category_name
-            score = category.score
-
-            self.current_gesture = f"{gesture} {score:.2f}"
-
-            # Start recording only when Pointing Up gesture
-            if gesture == "Pointing_Up" and not self.is_recording:
-                self.is_recording = True
-                self.status_message = "REC"
-
-            # Stop and save only if recording was already active + Closed Fist gesture
-            elif gesture == "Closed_Fist" and self.is_recording:
-                self.is_recording = False
-
-                trajectory = data.get("preprocessor")
-
-                if self._is_valid_trajectory(trajectory):
-                    self.last_trajectory = trajectory.copy()
-
-                    if self.mode == "training":
-                        self._auto_save_sample()
-                        self.status_message = f"SAVED {self.saved_samples}/{self.target_samples}"
-                    else:
-                        self.status_message = "STOPPED"
+        if recording_stopped:
+            if self._is_valid_trajectory(trajectory):
+                self.last_trajectory = trajectory.copy()
+                if self.mode == "training":
+                    self._auto_save_sample()
+                    self.status_message = f"SAVED {self.saved_samples}/{self.target_samples}"
                 else:
-                    self.status_message = "INVALID TRAJECTORY"
-
-                # For the same fist to not to save multiple times
-                self._freeze_until = time.time() + 1.5
-
-        else:
-            self.current_gesture = "None"
-            if not self.is_recording:
-                self.status_message = "WAIT"
-
+                    self.status_message = "STOPPED"
+            else:
+                self.status_message = "INVALID TRAJECTORY"
+            
         return {
             self.outputSignal: self._state(),
             "galy": self._make_overlay(),
-        }
+            }
 
     def stop(self, data):
-        if self._recognizer is not None:
-            self._recognizer.close()
-            self._recognizer = None
+        return {}
 
     # ------------------------------------------------------------
     # UI

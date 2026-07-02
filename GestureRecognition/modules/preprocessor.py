@@ -5,7 +5,7 @@ import numpy as np
 class Preprocessor(Module):
     def __init__(self, outputSignal="preprocessor"):
         super().__init__(
-            inputSignals=["config", "detector"],
+            inputSignals=["config", "detector","gesture_state"],
             outputSchema={"type": "object", "properties": {outputSignal: {}}},
             name="preprocessor",
         )
@@ -20,6 +20,9 @@ class Preprocessor(Module):
         self.index_idx = 8
         return {}
     def step(self, data):
+        gesture_state = data.get("gesture_state")
+        if gesture_state.get("recording_started"):
+            self.trajectory.clear()
         result = data["detector"]
         if result and getattr(result, "hand_landmarks", None):
             hand = result.hand_landmarks[0]
@@ -31,6 +34,7 @@ class Preprocessor(Module):
                 return {self.outputSignal: None}
             else:
                 arr = np.array(list(self.trajectory))
+                arr = arr[:-5]
                 center = arr.mean(axis=0)
                 arr_centered = arr - center
                 max_arr = np.max(np.abs(arr_centered))
