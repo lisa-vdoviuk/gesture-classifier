@@ -123,6 +123,34 @@ class HMMClassifier:
 
         return predictions
 
+    # This function predicts the class and also returns a confidence value.
+    def predict_with_confidence(self, sequences, temperature=10.0):
+        scores = self.decision_function(sequences)
+
+        predictions = []
+        confidences = []
+
+        for score_row in scores:
+            if np.all(np.isneginf(score_row)):
+                predictions.append("None")
+                confidences.append(0.0)
+                continue
+
+            best_index = int(np.argmax(score_row))
+            prediction = self.classes_[best_index]
+
+            # HMM scores are log-likelihoods, so we convert them into a confidence-like value with a softmax.
+            stable_scores = score_row - np.max(score_row)
+            exp_scores = np.exp(stable_scores / temperature)
+            probabilities = exp_scores / np.sum(exp_scores)
+
+            confidence = float(probabilities[best_index])
+
+            predictions.append(prediction)
+            confidences.append(confidence)
+
+        return predictions, confidences
+    
     # This function saves the trained classifier into a file.
     def save(self, path):
         with open(path, "wb") as file:
