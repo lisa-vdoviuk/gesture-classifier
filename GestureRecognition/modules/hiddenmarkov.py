@@ -1,6 +1,6 @@
 import numpy as np
 from pathlib import Path
-
+import logging
 from SignalHub import Module, GALY
 from GestureRecognition.hmmclassifier import HMMClassifier
 
