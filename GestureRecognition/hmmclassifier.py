@@ -8,7 +8,7 @@ class HMMClassifier:
     # This function creates the classifier and saves the HMM settings.
     def __init__(
             self, 
-            n_components=5, 
+            n_components=6, 
             covariance_type="diag", 
             n_iter=200, 
             resample_len=40, # Added resampling since different letter can have different amount of points, 40 is just an average
@@ -365,3 +365,15 @@ class HMMClassifier:
         print(classification_report(y_true, y_pred, labels=self.classes_, zero_division=0))
 
         print(f"Overall accuracy: {accuracy_score(y_true, y_pred):.3f}")
+
+        print("\nMisclassifications:")
+
+        has_errors = False
+
+        for true_label, predicted_label in zip(y_true, y_pred):
+            if true_label != predicted_label:
+                print(f"{true_label} -> {predicted_label}")
+                has_errors = True
+
+        if not has_errors:
+            print("No misclassifications.")
