@@ -1,6 +1,13 @@
-# 🖐️ Gesture Recognition MPT
+# Gesture Classifier MPT
 
-A real-time hand gesture recognition system utilizing MediaPipe and Hidden Markov Models (HMM) to classify dynamic alphabet trajectories.
+<p align="center">
+  <img width="32%" src="https://github.com/user-attachments/assets/3400fb6d-aba7-4841-b91a-36e83ed5aab0" />
+  <img width="32%" src="https://github.com/user-attachments/assets/4195b148-cad9-4004-b595-3e78123519aa" />
+  <img width="32%" src="https://github.com/user-attachments/assets/34a5e846-0bdd-4b67-ba3d-d31fdaa7d948" />
+</p>
+
+
+A real-time hand gesture classifier system utilizing MediaPipe and Hidden Markov Models (HMM) to classify dynamic alphabet trajectories.
 
 Developed for the **Machine Perception** project.
 
@@ -114,7 +121,7 @@ Training a Hidden Markov Model requires clean state transitions. We utilized a t
 
 1. **Collection:** Raw recordings are saved to `data/raw/`.
 2. **Quality Assurance:** We manually evaluate trajectories using `visualization.py`. Samples with tracking glitches (teleporting points) or incorrect stroke starts are discarded.
-3. **Compilation:** Verified samples are moved to `data/prepared/`, where the final `dataset.pkl` is built. We aim for ~30 clean samples per class to prevent model bias.
+3. **Compilation:** The final `dataset.pkl` is built based on `data/raw/` files. We aim for ~30 clean samples per class to prevent model bias.
 
 ---
 
@@ -124,7 +131,6 @@ Training a Hidden Markov Model requires clean state transitions. We utilized a t
 GestureRecognitionMPT/
 ├── data/
 │   ├── raw/                 # Unfiltered gesture recordings
-│   ├── prepared/            # QA-verified golden samples
 │   ├── dataset.pkl          # Compiled dataset for training
 │   └── hmm_classifier.pkl   # Trained HMM model weights
 ├── GestureRecognition/
