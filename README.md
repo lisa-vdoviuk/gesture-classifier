@@ -30,13 +30,13 @@ We recorded, cleaned, and trained the model to recognize the English alphabet.
     <td align="center"><b>A</b><br><img width="120" src="https://github.com/user-attachments/assets/bd88ff3f-0a35-48e9-893a-da82689b0064" /></td>
     <td align="center"><b>B</b><br><img width="120" src="https://github.com/user-attachments/assets/89ddf4d5-10ac-45cb-bc47-147e96695ab1" /></td>
     <td align="center"><b>C</b><br><img width="120" src="https://github.com/user-attachments/assets/50fd1856-997b-4dbe-b6af-87f8dda4aa73" /></td>
-    <td align="center"><b>D</b><br><i>WIP</i></td>
+    <td align="center"><b>D</b><br><img width="120" src="https://github.com/user-attachments/assets/ffccba82-b909-422a-af06-c7ae2a74a44d" /></td>
     <td align="center"><b>E</b><br><img width="120" src="https://github.com/user-attachments/assets/6b090f1b-1daa-4af3-a099-96bf9ffcf9e4" /></td>
     <td align="center"><b>F</b><br><img width="120" src="https://github.com/user-attachments/assets/de2228e2-3d63-4b11-a09e-1f77a1ad0952" /></td>
     <td align="center"><b>G</b><br><img width="120" src="https://github.com/user-attachments/assets/c97937a4-48e7-4301-9393-28350b8e4460" /></td>
   </tr>
   <tr>
-    <td align="center"><b>H</b><br><img width="120" src="https://github.com/user-attachments/assets/c922bfd1-7048-411d-a339-274d02ec2d9b" /></td>
+    <td align="center"><b>H</b><br><img width="120" src="https://github.com/user-attachments/assets/7de7906a-53dc-4c1d-93e0-15646c5eacc1" /></td>
     <td align="center"><b>I</b><br><img width="120" src="https://github.com/user-attachments/assets/aa5be910-cb58-417d-98ee-b6d55f796ca3" /></td>
     <td align="center"><b>J</b><br><img width="120" src="https://github.com/user-attachments/assets/95d631fb-8a21-4aaa-bfa7-f2a188d63613" /></td>
     <td align="center"><b>K</b><br><img width="120" src="https://github.com/user-attachments/assets/c17eb66a-8ab6-4278-a7c2-2244f76880bd" /></td>
