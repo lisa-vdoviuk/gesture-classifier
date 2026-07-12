@@ -151,7 +151,7 @@ GestureRecognitionMPT/
 
 ## Team
 
-- Lisa Vdoviuk
+- Yelyzaveta Vdoviuk
 - Oleksii Zvirkovskyi
 - Emen Fouda
 - Sofiene Bembli
