@@ -15,17 +15,21 @@ class HiddenMarkov(Module):
         self.classifier = None
     
     def start(self, data):
-        model_path = Path("data/hmm_classifier.pkl")
-        if not model_path.exists():
-            self.classifier = None
-            return {}
-        else:
-            self.classifier = HMMClassifier.load(model_path) # load the trained HMM classifier
-            return {}
+        self.classifier = None
+        self.loaded_model_version = -1
+        return {}
     
     def step(self, data):
         app_state = data["app_state"]
+        model_path = Path("data/hmm_classifier.pkl")
         mode = app_state["mode"]
+        model_version = app_state.get("model_version", 0)
+        if model_version != self.loaded_model_version and model_path.exists():
+            try:
+                self.classifier = HMMClassifier.load(model_path) # load the trained HMM classifier
+                self.loaded_model_version = model_version
+            except Exception as e:
+                print(f"Could not reload HMM model: {e}")
         if mode != "classification": # only in classification mode
             return {}
         else:
@@ -46,7 +50,7 @@ class HiddenMarkov(Module):
             else:
                 try:
                     predictions, confidences = self.classifier.predict_with_confidence([trajectory])
-
+                    
                     label = predictions[0]
                     confidence = confidences[0]
 

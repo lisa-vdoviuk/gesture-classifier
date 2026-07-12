@@ -8,7 +8,7 @@ class HMMClassifier:
     # This function creates the classifier and saves the HMM settings.
     def __init__(
             self, 
-            n_components=5, 
+            n_components=6, 
             covariance_type="diag", 
             n_iter=200, 
             resample_len=40, # Added resampling since different letter can have different amount of points, 40 is just an average
@@ -28,12 +28,16 @@ class HMMClassifier:
         self.grid_random_state = grid_random_state
         self.models = {}
         self.classes_ = []
+        self.class_priors_ = {}
 
     # This function trains one HMM model for every gesture class.
     def fit(self, dataset):
         self.models = {}
         self.classes_ = []
         self.best_params_ = {}
+        self.class_priors_ = {}
+
+        label_counts = {}
 
         for label in sorted(dataset.keys()):
             sequences = dataset[label]
@@ -44,6 +48,8 @@ class HMMClassifier:
 
                 if self._is_valid_sequence(sequence):
                     clean_sequences.append(sequence)
+
+            label_counts[label] = len(clean_sequences)
 
             if len(clean_sequences) < 2:
                 print(f"Skipping {label}: not enough valid samples")
@@ -80,6 +86,18 @@ class HMMClassifier:
 
         if len(self.models) == 0:
             raise ValueError("No models were trained. Please check the dataset.")
+
+        total_count = sum(label_counts.get(label, 0) for label in self.classes_)
+        if total_count > 0:
+            self.class_priors_ = {
+                label: label_counts.get(label, 0) / total_count
+                for label in self.classes_
+            }
+        else:
+            self.class_priors_ = {
+                label: 1.0 / len(self.classes_)
+                for label in self.classes_
+            }
 
         return self
 
@@ -131,7 +149,7 @@ class HMMClassifier:
         return predictions
 
     # This function predicts the class and also returns a confidence value.
-    def predict_with_confidence(self, sequences, temperature=10.0):
+    def predict_with_confidence(self, sequences, temperature=None):
         scores = self.decision_function(sequences)
 
         predictions = []
@@ -143,12 +161,32 @@ class HMMClassifier:
                 confidences.append(0.0)
                 continue
 
-            best_index = int(np.argmax(score_row))
+            # Convert HMM log-likelihoods (already normalized per-point in
+            # decision_function via score / len(sequence)) into a posterior
+            # probability over the trained classes. The prior must be brought
+            # to the SAME per-point scale before combining, otherwise it
+            # dominates or gets ignored depending on sequence length.
+            row = np.asarray(score_row, dtype=float)
+            prior_dict = getattr(self, "class_priors_", {}) or {}
+            if prior_dict:
+                prior_vector = np.array(
+                    [prior_dict.get(label, 1.0 / len(self.classes_)) for label in self.classes_],
+                    dtype=float,
+                )
+                # score_row entries are log-likelihood PER POINT, so scale
+                # the (whole-sequence) log-prior down to the same per-point
+                # units using the resample length used during scoring.
+                points_per_sequence = self.resample_len if self.resample_len else 1
+                row = row + np.log(prior_vector) / points_per_sequence
+
+            # Pick the prediction AND the confidence from the same
+            # (prior-adjusted) distribution, so the reported confidence
+            # always matches the reported prediction.
+            best_index = int(np.argmax(row))
             prediction = self.classes_[best_index]
 
-            # HMM scores are log-likelihoods, so we convert them into a confidence-like value with a softmax.
-            stable_scores = score_row - np.max(score_row)
-            exp_scores = np.exp(stable_scores / temperature)
+            stable_scores = row - np.max(row)
+            exp_scores = np.exp(stable_scores)
             probabilities = exp_scores / np.sum(exp_scores)
 
             confidence = float(probabilities[best_index])
@@ -365,3 +403,15 @@ class HMMClassifier:
         print(classification_report(y_true, y_pred, labels=self.classes_, zero_division=0))
 
         print(f"Overall accuracy: {accuracy_score(y_true, y_pred):.3f}")
+
+        print("\nMisclassifications:")
+
+        has_errors = False
+
+        for true_label, predicted_label in zip(y_true, y_pred):
+            if true_label != predicted_label:
+                print(f"{true_label} -> {predicted_label}")
+                has_errors = True
+
+        if not has_errors:
+            print("No misclassifications.")
