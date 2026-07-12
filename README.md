@@ -6,7 +6,6 @@
   <img width="32%" src="https://github.com/user-attachments/assets/34a5e846-0bdd-4b67-ba3d-d31fdaa7d948" />
 </p>
 
-
 A real-time hand gesture classifier system utilizing MediaPipe and Hidden Markov Models (HMM) to classify dynamic alphabet trajectories.
 
 Developed for the **Machine Perception** project.
@@ -71,8 +70,8 @@ We recorded, cleaned, and trained the model to recognize the English alphabet.
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/jaboll-ai/GestureRecognitionMPT.git
-cd GestureRecognitionMPT
+git clone https://github.com/lisa-vdoviuk/gesture-classifier.git
+cd gesture-classifier
 pip install -r requirements.txt
 ```
 
@@ -92,77 +91,132 @@ If you are using an external webcam, open `config.yml` and change `deviceindex: 
 
 ## Controls & Usage
 
-The recording system is controlled entirely via physical hand gestures:
+The recording system is controlled via physical hand gestures and a PyQt5 menu overlay:
 
 | Input | Action |
-|---|---|
+| --- | --- |
 | ☝️ **Index Finger Up** | Start recording trajectory |
 | ✊ **Closed Fist** | Stop recording and save sample |
+| **`Ctrl + S`** | Shortcut to manually save current sample |
 | **Top Menu** | Switch between Training / Dataset Build / Classification |
 
 ### 1. Recording Data (Training Mode)
+
 1. In the live window, use the top menu: **Training -> Start training mode**.
 2. Enter the letter you want to record and the target number of samples.
-3. Point your index finger UP (`☝️`) to start. Draw the letter. Close your hand into a FIST (`✊`) to stop and save the sample.
+3. Point your index finger UP (`☝️`) to start drawing the letter. Close your hand into a FIST (`✊`) or press `Ctrl+S` to stop and save the sample.
 4. Repeat until you reach the target count.
 
 ### 2. Building & Training
-1. Once all letters are recorded and QA'd, go to **Training -> Build dataset**. This generates the `data/dataset.pkl` file.
-2. Click **Training -> Train HMM model**. This will extract features, run the grid search, evaluate the accuracy, and save the model to `data/hmm_classifier.pkl`.
+
+1. Once all letters are recorded and QA'd, go to **Training -> Build dataset**. This compiles the records into the `data/dataset.pkl` file.
+2. Click **Training -> Train HMM model**. This extracts features, splits data for offline validation, runs the grid search, evaluates accuracy, and saves the weights to `data/hmm_classifier.pkl`.
 
 ### 3. Live Classification
-Once the model is trained, the system will default to Classification Mode. Simply draw a letter in front of the camera, and the HMM prediction (with confidence score) will appear on the screen!
+
+Once the model is trained, the system defaults to Classification Mode. Simply draw a letter in front of the camera, and the HMM prediction (with confidence score) will appear on the screen!
+
+---
+
+## System Architecture
+
+The project is built on the `SignalHub` framework, passing data through a pipeline of isolated modules:
+
+* **`HandDetector`**: Analyzes the webcam frame using MediaPipe and extracts 21 3D hand landmarks.
+* **`GestureState`**: Identifies specific static triggers (`Pointing_Up` to start, `Closed_Fist` to stop).
+* **`Preprocessor`**: Tracks the index fingertip over time, centers/scales the coordinate trajectory, and prepares the matrix.
+* **`TrailMarker`**: Provides real-time visual feedback to the user by drawing a fading cyan trail using a deque memory and affine mapping.
+* **`TrainingController`**: A PyQt5 UI wrapper managing the application state, saving `.npy` files, and initiating the offline HMM training process.
+* **`HMMClassifier` / `HiddenMarkov`**: Resamples sequences, runs a Grid Search to find optimal parameters, and takes live preprocessed trajectories to predict the active gesture.
+
+---
+
+## Design Decisions & Optimizations
+
+To ensure high accuracy across different users and drawing speeds, we implemented several specific design choices in our data engineering and ML pipeline:
+
+### 1. Preprocessor Normalization
+
+Raw coordinates depend on where the user stands in the frame. The preprocessor achieves **spatial invariance** by:
+
+* **Mean Centering:** Calculating the spatial mean center of the captured index-finger trajectory and subtracting it from all points.
+* **Bounding Box Scaling:** Normalizing the entire array by dividing by the maximum absolute value, ensuring all gestures scale within a `[-1, 1]` footprint.
+* **End-Trimming:** Truncating the final 5 frames (`arr[:-5]`) of the trajectory sequence to eliminate tracking distortion caused when transitioning into the trailing closed-fist gesture.
+
+### 2. HMM Feature Extraction & Resampling
+
+Because users draw at different speeds, raw sequences have vastly different frame counts.
+
+* **Linear Resampling:** All sequences are strictly interpolated to exactly 40 points (`resample_len=40`). This standardizes the time-series length across all character variants.
+* **Velocity Features (`xy_dxy`):** Instead of just looking at static points (`x, y`), the model calculates the delta/velocity between consecutive frames (`dxy`). This provides the HMM with crucial context about the *direction* of the stroke.
+
+### 3. Grid Search & Regularization
+
+During training, the system runs an automated Grid Search with a 25% validation split. It tests hidden states (`n_components` from 2 up to a maximum of 5, as configured by the controller) to find the optimal complexity for each specific letter. We also implemented covariance regularization (`min_covar_options`) to prevent matrix singularities when a gesture path has minor spatial variance.
+
+### 4. Confidence Score Calculation
+
+Gaussian HMMs output unnormalized log-likelihoods, which are difficult to interpret as absolute metrics. We calculate a readable, relative posterior probability distribution (0% - 100%) by:
+
+* **Prior Normalization:** Whole-sequence log-priors are matched to a per-point scale using the resample length used during scoring.
+* **Posterior Mapping:** Combining likelihoods and adjusted log-priors, shifting by the maximum score row entry for numerical stability, and utilizing exponential normalization to yield relative probabilities across the trained classes.
 
 ---
 
 ## Data Engineering & QA
 
-Training a Hidden Markov Model requires clean state transitions. We utilized a two-step data pipeline:
+Training a Hidden Markov Model requires clean state transitions. We utilized a structured data pipeline:
 
-1. **Collection:** Raw recordings are saved to `data/raw/`.
+1. **Collection:** Raw recordings are saved as `.npy` array paths grouped under directories inside `data/raw/`.
 2. **Quality Assurance:** We manually evaluate trajectories using `visualization.py`. Samples with tracking glitches (teleporting points) or incorrect stroke starts are discarded.
-3. **Compilation:** The final `dataset.pkl` is built based on `data/raw/` files. We aim for ~30 clean samples per class to prevent model bias.
+3. **Compilation:** The final `dataset.pkl` is built directly from valid `data/raw/` entries. We use 30 clean samples per class to prevent model bias.
+
+---
+
+## Interpretation of Results
+
+*Note: This section summarizes the final accuracy and confusion matrix generated during the offline training phase.*
+
+* **Overall Accuracy:** [Final accuracy here]
+* **Observations:** [Final confusion matrix observation here]
 
 ---
 
 ## Project Structure
 
 ```
-GestureRecognitionMPT/
+gesture-classifier/
 ├── data/
-│   ├── raw/                 # Unfiltered gesture recordings
+│   ├── raw/                 # Unfiltered gesture recordings (.npy format)
 │   ├── dataset.pkl          # Compiled dataset for training
 │   └── hmm_classifier.pkl   # Trained HMM model weights
 ├── GestureRecognition/
 │   ├── modules/             # SignalHub application modules
+│   │   ├── gesturestate.py
+│   │   ├── handdetector.py
+│   │   ├── hiddenmarkov.py
+│   │   ├── preprocessor.py
+│   │   ├── recorder.py
+│   │   ├── trailmarker.py
+│   │   └── trainingcontroller.py
 │   └── hmmclassifier.py     # HMM math and grid-search logic
 ├── main.py                  # Entry point and engine setup
 ├── config.yml               # Central configuration parameters
 ├── visualization.py         # Matplotlib trajectory evaluation
-├── requirements.txt
+└── requirements.txt         # Project dependencies
 ```
-
----
-
-## Module Overview
-
-- **`HandDetector`**: Analyzes the webcam frame using MediaPipe and extracts 21 3D hand landmarks.
-- **`GestureState`**: Identifies specific static triggers (`Pointing_Up` to start, `Closed_Fist` to stop).
-- **`Preprocessor`**: Tracks the index fingertip over time, centers/scales the coordinate trajectory, and removes jitter.
-- **`TrailMarker`**: Provides real-time visual feedback to the user by drawing a fading cyan trail using a deque memory and affine mapping.
-- **`TrainingController`**: A PyQt5 UI wrapper managing the application state, saving `.npy` files, and initiating the offline HMM training process.
-- **`HMMClassifier` / `HiddenMarkov`**: Resamples sequences to 40 points, runs a Grid Search to find optimal parameters, and takes live preprocessed trajectories to predict the active gesture.
 
 ---
 
 ## Team
 
-- Yelyzaveta Vdoviuk
-- Oleksii Zvirkovskyi
-- Emen Fouda
-- Sofiene Bembli
+* Yelyzaveta Vdoviuk
+* Oleksii Zvirkovskyi
+* Emen Fouda
+* Sofiene Bembli
 
 ---
+
 ## License
 
 For academic use only.
