@@ -1,5 +1,14 @@
 # Gesture Classifier MPT
 
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![MediaPipe](https://img.shields.io/badge/MediaPipe-Landmark%20Tracking-00C853)
+![OpenCV](https://img.shields.io/badge/OpenCV-Image%20Processing-5C3EE8)
+![PyQt5](https://img.shields.io/badge/UI-PyQt5-blueviolet)
+![HMM](https://img.shields.io/badge/Model-Gaussian%20HMM-darkgreen)
+![scikit--learn](https://img.shields.io/badge/scikit--learn-Metrics-F7931E)
+![Metrics](https://img.shields.io/badge/Evaluation-Confidence%20%26%20Likelihood-orange)
+![License](https://img.shields.io/badge/License-Academic%20Use%20Only-red)
+
 <p align="center">
   <img width="32%" src="https://github.com/user-attachments/assets/3400fb6d-aba7-4841-b91a-36e83ed5aab0" />
   <img width="32%" src="https://github.com/user-attachments/assets/4195b148-cad9-4004-b595-3e78123519aa" />
@@ -104,7 +113,7 @@ The recording system is controlled via physical hand gestures and a PyQt5 menu o
 
 1. In the live window, use the top menu: **Training -> Start training mode**.
 2. Enter the letter you want to record and the target number of samples.
-3. Point your index finger UP (`☝️`) to start drawing the letter. Close your hand into a FIST (`✊`) or press `Ctrl+S` to stop and save the sample.
+3. Point your index finger UP (`☝️`) to start drawing the letter. Close your hand into a FIST (`✊`) to stop and save the sample.
 4. Repeat until you reach the target count.
 
 ### 2. Building & Training
@@ -154,12 +163,25 @@ Because users draw at different speeds, raw sequences have vastly different fram
 
 During training, the system runs an automated Grid Search with a 25% validation split. It tests hidden states (`n_components` from 2 up to a maximum of 5, as configured by the controller) to find the optimal complexity for each specific letter. We also implemented covariance regularization (`min_covar_options`) to prevent matrix singularities when a gesture path has minor spatial variance.
 
-### 4. Confidence Score Calculation
+### 4. Live Prediction & Confidence Score Calculation
 
-Gaussian HMMs output unnormalized log-likelihoods, which are difficult to interpret as absolute metrics. We calculate a readable, relative posterior probability distribution (0% - 100%) by:
+Gaussian HMMs natively output unnormalized log-likelihoods, which are highly sensitive to sequence length and difficult to interpret as absolute absolute metrics. To resolve this in real-time mode, the system normalizes the outputs per point, injects training priors, and converts the results into readable probabilities ($0\% - 100\%$).
 
-* **Prior Normalization:** Whole-sequence log-priors are matched to a per-point scale using the resample length used during scoring.
-* **Posterior Mapping:** Combining likelihoods and adjusted log-priors, shifting by the maximum score row entry for numerical stability, and utilizing exponential normalization to yield relative probabilities across the trained classes.
+#### The Scoring Formula
+For each gesture class, the live classification score is calculated using the following joint per-point formulation:
+
+$$\text{Score} = \left(\frac{\text{Log-Likelihood}}{N}\right) + \text{Scaled Prior}$$
+
+Where the variables represent:
+*   **Log-Likelihood:** The raw HMM shape-matching score reflecting how well the drawn trajectory conforms to the structural states of that specific letter.
+*   **$N$ (Trajectory Length):** The number of points in the sequence (standardized via linear interpolation to `resample_len = 40`). Dividing by $N$ normalizes the score, preventing longer gestures from being unfairly penalized compared to shorter ones.
+*   **Scaled Prior:** A frequency bonus based on how many clean samples of this class exist in the training data. The whole-sequence log-prior is mathematically downscaled to the per-point level to maintain balance with the geometric shape score.
+
+#### Prediction & Confidence Mapping
+Once the scoring row is computed for all 26 classes, the final classification decision is made:
+
+*   **Prediction ($\text{argmax}$):** The system selects the alphabet class that yields the highest combined score.
+*   **Confidence Score ($\text{Softmax}$):** To convert raw exponential log-scales into intuitive probabilities, the scores are passed through a numerically stable **Softmax** function (shifted by the maximum score entry to avoid underflow/overflow errors). This maps the top prediction directly into a clear $0.0 - 1.0$ confidence metric displayed live on the screen.
 
 ---
 
@@ -173,12 +195,61 @@ Training a Hidden Markov Model requires clean state transitions. We utilized a s
 
 ---
 
-## Interpretation of Results
+## Model Performance
 
-*Note: This section summarizes the final accuracy and confusion matrix generated during the offline training phase.*
+Trained on the full alphabet (26 classes, 30 samples per class), evaluated on a held-out 20% test split.
 
-* **Overall Accuracy:** [Final accuracy here]
-* **Observations:** [Final confusion matrix observation here]
+**Overall accuracy: 96.8%**
+
+### Key Metrics
+
+<p align="center">
+  <img width="85%" src="https://github.com/user-attachments/assets/6e255dcd-892c-4036-bdce-17e822a6992f" alt="Per-class accuracy" />
+  <br/><sub>Per-class accuracy vs. overall average</sub>
+</p>
+
+<p align="center">
+  <img width="65%" src="https://github.com/user-attachments/assets/6177738c-20a9-406a-b908-aa9004a838f4" alt="Normalized confusion matrix" />
+  <br/><sub>Confusion matrix, normalized by true class (= per-class recall)</sub>
+</p>
+
+---
+
+### Deep Dive: Detailed Metrics & Confidence
+
+<details>
+<summary><b>Click to expand Precision/Recall/F1 and Confidence Distribution</b></summary>
+<br/>
+
+**Precision / Recall / F1 Score per Class**
+<p align="center">
+  <img width="50%" src="https://github.com/user-attachments/assets/1088872e-9be4-445f-b677-7ce9c37c7102" alt="Precision / Recall / F1 per class" />
+</p>
+
+**Model Confidence per Predicted Class**
+<p align="center">
+  <img width="85%" src="https://github.com/user-attachments/assets/61edc326-aaee-4194-9e27-1a4ce67d7168" alt="Confidence distribution by predicted class" />
+</p>
+<i>Confidence spread varies noticeably by letter: short/simple strokes (<code>K</code>, <code>R</code>) get lower, noisier confidence, while distinctive multi-directional strokes (<code>U</code>, <code>I</code>) are classified with consistently high confidence.</i>
+
+</details>
+
+---
+
+### Known Challenges
+
+Test errors cluster around letters whose drawn trajectory is visually similar as a single continuous stroke:
+
+| True label | Predicted as |
+|:---:|:---:|
+| **B** | A |
+| **C** | G |
+| **G** | B |
+| **N** | D |
+| **P** | B |
+
+> **Note:** `B`, `G`, and `P` in particular share a similar "loop + vertical stroke" motion when drawn quickly — this is the main source of confusion for the HMM.
+
 
 ---
 
@@ -187,7 +258,7 @@ Training a Hidden Markov Model requires clean state transitions. We utilized a s
 ```
 gesture-classifier/
 ├── data/
-│   ├── raw/                 # Unfiltered gesture recordings (.npy format)
+│   ├── raw/                 # Gesture recordings (.npy format)
 │   ├── dataset.pkl          # Compiled dataset for training
 │   └── hmm_classifier.pkl   # Trained HMM model weights
 ├── GestureRecognition/
@@ -196,7 +267,6 @@ gesture-classifier/
 │   │   ├── handdetector.py
 │   │   ├── hiddenmarkov.py
 │   │   ├── preprocessor.py
-│   │   ├── recorder.py
 │   │   ├── trailmarker.py
 │   │   └── trainingcontroller.py
 │   └── hmmclassifier.py     # HMM math and grid-search logic
@@ -205,6 +275,20 @@ gesture-classifier/
 ├── visualization.py         # Matplotlib trajectory evaluation
 └── requirements.txt         # Project dependencies
 ```
+## Possible Enhancements
+
+- **Data augmentation** — synthetic jitter, rotation, and time-warping on existing trajectories to reduce reliance on collecting more raw samples per class.
+- **Confusable-pair features** — add stroke start-point / direction-of-travel as an explicit feature to help disambiguate visually similar strokes (`B`/`G`/`P`).
+- **Writer-independent validation** — split train/test by *person*, not just by sample, to test generalization across different users/hand sizes.
+- **Adaptive resampling** — replace the fixed `resample_len=40` with DTW-based alignment instead of linear interpolation (chart below shows the problem of distribution).
+<details>
+  
+**Trajectory Length Distribution**
+
+<p align="center">
+  <img width="50%" src="https://github.com/user-attachments/assets/92551ecf-c097-408f-9d24-0e11613fddf7" alt="Precision / Recall / F1 per class" />
+</p>
+</details>
 
 ---
 
