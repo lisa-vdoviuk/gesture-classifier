@@ -23,7 +23,7 @@ def run(parser: argparse.ArgumentParser):
         TrainingController(),
         TrailMarker(),
         HiddenMarkov(),
-        #Recorder(),
+
         
     ]
 
